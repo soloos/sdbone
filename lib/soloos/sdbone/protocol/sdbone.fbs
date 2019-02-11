@@ -1,0 +1,6 @@
+namespace protocol;
+
+table CommonResponse {
+    Code:int;
+    Error:string;
+}
