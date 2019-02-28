@@ -50,10 +50,10 @@ BenchNode () {
 
 MODULES=()
 TestNode "./lib/" "soloos" "test-soloos"
-TestNode "./src/" "libswal" "test-libswal"
+TestNode "./src/" "libsdbone" "test-libsdbone"
 echo "test:$MODULES" >> $maketestfile
 
 MODULES=()
 BenchNode "./lib/" "soloos" "bench-soloos"
-BenchNode "./src/" "libswal" "bench-libswal"
+BenchNode "./src/" "libsdbone" "bench-libsdbone"
 echo "bench:$MODULES" >> $makebenchfile

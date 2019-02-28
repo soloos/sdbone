@@ -1,2 +1,5 @@
 
-test:
+test-soloos-sdbone-offheap:
+	go test soloos/sdbone/offheap
+
+test: test-soloos-sdbone-offheap
