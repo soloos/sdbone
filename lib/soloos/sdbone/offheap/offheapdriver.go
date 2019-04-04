@@ -19,13 +19,11 @@ type OffheapDriver struct {
 
 	chunkPools    map[int64]*ChunkPool
 	rawChunkPools map[int64]*RawChunkPool
-	kvTables      map[int64]*HKVTable
 }
 
 func (p *OffheapDriver) Init() error {
 	p.chunkPools = make(map[int64]*ChunkPool)
 	p.rawChunkPools = make(map[int64]*RawChunkPool)
-	p.kvTables = make(map[int64]*HKVTable)
 	return nil
 }
 

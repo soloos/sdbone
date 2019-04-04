@@ -80,29 +80,27 @@ func (p *RawChunkPool) mallocRawChunk() uintptr {
 	)
 
 	// step1 grow mem if need
-	if err == nil {
+	currentMmapBytes = p.currentMmapBytes
+	end = atomic.AddUintptr(&currentMmapBytes.addrStart, p.rawChunkSize)
+	if end > currentMmapBytes.addrEnd {
+		p.rawChunksMutex.Lock()
 		currentMmapBytes = p.currentMmapBytes
 		end = atomic.AddUintptr(&currentMmapBytes.addrStart, p.rawChunkSize)
-		if end > currentMmapBytes.addrEnd {
-			p.rawChunksMutex.Lock()
-			currentMmapBytes = p.currentMmapBytes
-			end = atomic.AddUintptr(&currentMmapBytes.addrStart, p.rawChunkSize)
-			if end < currentMmapBytes.addrEnd {
-				p.rawChunksMutex.Unlock()
-				goto STEP1_DONE
-			}
-
-			err = p.growMmapBytesList()
-			if err != nil {
-				p.rawChunksMutex.Unlock()
-				goto STEP1_DONE
-			}
-
-			currentMmapBytes = p.currentMmapBytes
-			end = currentMmapBytes.addrStart + p.rawChunkSize
-			currentMmapBytes.addrStart = end
+		if end < currentMmapBytes.addrEnd {
 			p.rawChunksMutex.Unlock()
+			goto STEP1_DONE
 		}
+
+		err = p.growMmapBytesList()
+		if err != nil {
+			p.rawChunksMutex.Unlock()
+			goto STEP1_DONE
+		}
+
+		currentMmapBytes = p.currentMmapBytes
+		end = currentMmapBytes.addrStart + p.rawChunkSize
+		currentMmapBytes.addrStart = end
+		p.rawChunksMutex.Unlock()
 	}
 STEP1_DONE:
 

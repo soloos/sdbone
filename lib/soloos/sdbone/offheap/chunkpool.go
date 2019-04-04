@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 )
 
-type ChunkPoolInvokePrepareNewChunk func(uChunk ChunkUintptr)
+type ChunkPoolInvokePrepareNewChunk func(uChunk uintptr)
 type ChunkPoolInvokeReleaseChunk func()
 
 // ChunkPool
@@ -124,7 +124,7 @@ STEP1_DONE:
 	}
 
 	if p.prepareNewChunkFunc != nil {
-		p.prepareNewChunkFunc(uChunk)
+		p.prepareNewChunkFunc(uintptr(uChunk))
 	}
 	return uintptr(uChunk)
 }
@@ -146,7 +146,7 @@ func (p *ChunkPool) AllocChunk() ChunkUintptr {
 	return ChunkUintptr(p.pool.Get())
 }
 
-func (p *ChunkPool) ReleaseChunk(chunk ChunkUintptr) {
+func (p *ChunkPool) ReleaseChunk(uChunk uintptr) {
 	atomic.AddInt32(&p.activeChunksNum, -1)
-	p.pool.Put(uintptr(chunk))
+	p.pool.Put(uChunk)
 }

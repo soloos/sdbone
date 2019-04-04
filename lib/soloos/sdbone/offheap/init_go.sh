@@ -1,7 +1,19 @@
 #!/bin/bash
-python ./init_hkvtable_op.py >          hkvtable_op.go
-gofmt         hkvtable_op.go >          hkvtable_op.tmp.go
-mv            hkvtable_op.tmp.go        hkvtable_op.go
-python ./init_hkvtable_object.py >      hkvtable_object.go
-gofmt         hkvtable_object.go >      hkvtable_object.tmp.go
-mv            hkvtable_object.tmp.go    hkvtable_object.go
+
+arr=(
+        'String  string   string'
+        'Int32   int32    int32'
+        'Int64   int64    int64'
+        'Bytes12 [12]byte bytes12'
+        'Bytes64 [64]byte bytes64'
+        )
+
+len=${#arr[@]}
+for((i=0;i<len;i+=1))
+do
+        item=(${arr[$i]})
+
+        python ./tmpl/init_one_go.py ./tmpl/hkvtable_keytype.go ${item[0]} ${item[1]} |gofmt > ./hkvtable_${item[2]}.go
+done
+
+python ./tmpl/init_hkvtable_common.py |gofmt > ./hkvtable_common.go
