@@ -1,13 +1,12 @@
 package offheap
 
 import (
-	"sync"
 	"sync/atomic"
 	"unsafe"
 )
 
 const (
-	HSharedPointerUniniteded = int32(iota)
+	HSharedPointerUninited = int32(iota)
 	HSharedPointerIniteded
 	HSharedPointerReleasable
 	HSharedPointerRelease
@@ -21,9 +20,8 @@ func (u HSharedPointerUPtr) Ptr() *HSharedPointer {
 
 // Heavy SharedPointer
 type HSharedPointer struct {
-	accessRWMutex sync.RWMutex
-	accessor      int32
-	status        int32
+	accessor int32
+	status   int32
 }
 
 func (p *HSharedPointer) SetReleasable() {
@@ -34,15 +32,15 @@ func (p *HSharedPointer) EnsureRelease() bool {
 	return atomic.CompareAndSwapInt32(&p.status, HSharedPointerReleasable, HSharedPointerRelease)
 }
 func (p *HSharedPointer) Reset() {
-	atomic.StoreInt32(&p.status, SharedPointerUninited)
+	atomic.StoreInt32(&p.status, HSharedPointerUninited)
 }
 
 func (p *HSharedPointer) CompleteInit() {
-	atomic.StoreInt32(&p.status, SharedPointerIniteded)
+	atomic.StoreInt32(&p.status, HSharedPointerIniteded)
 }
 
 func (p *HSharedPointer) IsInited() bool {
-	return atomic.LoadInt32(&p.status) > SharedPointerUninited
+	return atomic.LoadInt32(&p.status) > HSharedPointerUninited
 }
 
 func (p *HSharedPointer) IsShouldRelease() bool {
@@ -55,20 +53,16 @@ func (p *HSharedPointer) GetAccessor() int32 {
 
 func (p *HSharedPointer) ReadAcquire() {
 	atomic.AddInt32(&p.accessor, 1)
-	p.accessRWMutex.RLock()
 }
 
 func (p *HSharedPointer) ReadRelease() {
-	p.accessRWMutex.RUnlock()
 	atomic.AddInt32(&p.accessor, -1)
 }
 
 func (p *HSharedPointer) WriteAcquire() {
 	atomic.AddInt32(&p.accessor, 1)
-	p.accessRWMutex.Lock()
 }
 
 func (p *HSharedPointer) WriteRelease() {
-	p.accessRWMutex.Unlock()
 	atomic.AddInt32(&p.accessor, -1)
 }

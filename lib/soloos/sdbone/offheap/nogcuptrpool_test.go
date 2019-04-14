@@ -10,7 +10,7 @@ package offheap
 import (
 	"runtime"
 	"runtime/debug"
-	. "sync"
+	"sync"
 	"testing"
 )
 
@@ -129,7 +129,7 @@ func BenchmarkNoGCUintptrPoolOverflow(b *testing.B) {
 }
 
 func BenchmarkPool(b *testing.B) {
-	var p Pool
+	var p sync.Pool
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			p.Put(1)
@@ -139,7 +139,7 @@ func BenchmarkPool(b *testing.B) {
 }
 
 func BenchmarkPoolOverflow(b *testing.B) {
-	var p Pool
+	var p sync.Pool
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			for b := 0; b < 100; b++ {

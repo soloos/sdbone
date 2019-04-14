@@ -14,7 +14,7 @@ var poolRaceHash [128]uint64
 // directly, for fear of conflicting with other synchronization on that address.
 // Instead, we hash the pointer to get an index into poolRaceHash.
 // See discussion on golang.org/cl/31589.
-func poolRaceAddr(x interface{}) unsafe.Pointer {
+func poolRaceAddr(x uintptr) unsafe.Pointer {
 	ptr := uintptr((*[2]unsafe.Pointer)(unsafe.Pointer(&x))[1])
 	h := uint32((uint64(uint32(ptr)) * 0x85ebca6b) >> 16)
 	return unsafe.Pointer(&poolRaceHash[h%uint32(len(poolRaceHash))])
@@ -95,13 +95,13 @@ func (p *NoGCUintptrPool) Put(x uintptr) {
 	if x == 0 {
 		return
 	}
-	if runtime.UnsafeRaceEnabled {
+	if sync.UnsafeRaceEnabled {
 		if runtime.UnsafeFastrand()%4 == 0 {
 			// Randomly drop x on floor.
 			return
 		}
-		runtime.UnsafeRaceReleaseMerge(poolRaceAddr(x))
-		runtime.UnsafeRaceDisable()
+		sync.UnsafeRaceReleaseMerge(poolRaceAddr(x))
+		sync.UnsafeRaceDisable()
 	}
 	l := p.pin()
 	if l.private == 0 {
@@ -114,8 +114,8 @@ func (p *NoGCUintptrPool) Put(x uintptr) {
 		l.shared = append(l.shared, x)
 		l.Unlock()
 	}
-	if runtime.UnsafeRaceEnabled {
-		runtime.UnsafeRaceEnable()
+	if sync.UnsafeRaceEnabled {
+		sync.UnsafeRaceEnable()
 	}
 }
 
@@ -128,8 +128,8 @@ func (p *NoGCUintptrPool) Put(x uintptr) {
 // If Get would otherwise return nil and p.New is non-nil, Get returns
 // the result of calling p.New.
 func (p *NoGCUintptrPool) Get() uintptr {
-	if runtime.UnsafeRaceEnabled {
-		runtime.UnsafeRaceDisable()
+	if sync.UnsafeRaceEnabled {
+		sync.UnsafeRaceDisable()
 	}
 	l := p.pin()
 	x := l.private
@@ -147,10 +147,10 @@ func (p *NoGCUintptrPool) Get() uintptr {
 			x = p.getSlow()
 		}
 	}
-	if runtime.UnsafeRaceEnabled {
-		runtime.UnsafeRaceEnable()
+	if sync.UnsafeRaceEnabled {
+		sync.UnsafeRaceEnable()
 		if x != 0 {
-			runtime.UnsafeRaceAcquire(poolRaceAddr(x))
+			sync.UnsafeRaceAcquire(poolRaceAddr(x))
 		}
 	}
 	if x == 0 && p.New != nil {
@@ -215,6 +215,9 @@ func (p *NoGCUintptrPool) pinSlow() *uintptrPoolLocal {
 	// If GOMAXPROCS changes between GCs, we re-allocate the array and lose the old one.
 	size := runtime.GOMAXPROCS(0)
 	local := make([]uintptrPoolLocal, size)
+	for i := uintptr(0); i < p.localSize; i++ {
+		local[i] = (*(*[]uintptrPoolLocal)(p.local))[i]
+	}
 	atomic.StorePointer(&p.local, unsafe.Pointer(&local[0])) // store-release
 	atomic.StoreUintptr(&p.localSize, uintptr(size))         // store-release
 	return &local[pid]

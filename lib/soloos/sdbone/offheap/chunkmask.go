@@ -37,7 +37,7 @@ func (p *ChunkMask) Reset() {
 //
 // param:
 //			ignoreIndex int 		需要跳过检查的元素
-//									该参数比较特殊，ResFileChunk.appendNeedFlushDiskMaskOnlyForWriteData中有用到
+//									该参数比较特殊，ResFileObject.appendNeedFlushDiskMaskOnlyForWriteData中有用到
 //			offset 		int 		Mask.Offset
 //			end			int 		Mask.End
 //			maskArray	[][2]int	[[offset0,end0], [offset1,end1], ...]

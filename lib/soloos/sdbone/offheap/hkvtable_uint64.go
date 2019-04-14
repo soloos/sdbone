@@ -7,24 +7,24 @@ import (
 
 // inited by script
 
-type HKVTableObjectUPtrWithString uintptr
+type HKVTableObjectUPtrWithUint64 uintptr
 
-func (u HKVTableObjectUPtrWithString) Ptr() *HKVTableObjectWithString {
-	return (*HKVTableObjectWithString)(unsafe.Pointer(u))
+func (u HKVTableObjectUPtrWithUint64) Ptr() *HKVTableObjectWithUint64 {
+	return (*HKVTableObjectWithUint64)(unsafe.Pointer(u))
 }
 
-type HKVTableObjectWithString struct {
-	ID string
+type HKVTableObjectWithUint64 struct {
+	ID uint64
 	HSharedPointer
 }
 
 // Heavy Key-Value table
-type HKVTableWithString struct {
+type HKVTableWithUint64 struct {
 	KVTableCommon
-	shards []map[string]HKVTableObjectUPtrWithString
+	shards []map[uint64]HKVTableObjectUPtrWithUint64
 }
 
-func (p *OffheapDriver) InitHKVTableWithString(kvTable *HKVTableWithString, name string,
+func (p *OffheapDriver) InitHKVTableWithUint64(kvTable *HKVTableWithUint64, name string,
 	objectSize int, objectsLimit int32, shardCount uint32,
 	prepareNewObjectFunc KVTableInvokePrepareNewObject,
 	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
@@ -43,7 +43,7 @@ func (p *OffheapDriver) InitHKVTableWithString(kvTable *HKVTableWithString, name
 	return err
 }
 
-func (p *HKVTableWithString) Init(name string,
+func (p *HKVTableWithUint64) Init(name string,
 	objectSize int, objectsLimit int32, shardCount uint32,
 	prepareNewObjectFunc KVTableInvokePrepareNewObject,
 	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
@@ -68,22 +68,22 @@ func (p *HKVTableWithString) Init(name string,
 	return nil
 }
 
-func (p *HKVTableWithString) Name() string {
+func (p *HKVTableWithUint64) Name() string {
 	return p.name
 }
 
-func (p *HKVTableWithString) prepareShards(objectSize int, objectsLimit int32) error {
+func (p *HKVTableWithUint64) prepareShards(objectSize int, objectsLimit int32) error {
 	var (
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[string]HKVTableObjectUPtrWithString, p.shardCount)
+	p.shards = make([]map[uint64]HKVTableObjectUPtrWithUint64, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[string]HKVTableObjectUPtrWithString)
+		p.shards[shardIndex] = make(map[uint64]HKVTableObjectUPtrWithUint64)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
-		nil, p.objectPoolInvokeReleaseObjectString)
+		nil, p.objectPoolInvokeReleaseObjectUint64)
 	if err != nil {
 		return err
 	}
@@ -91,15 +91,15 @@ func (p *HKVTableWithString) prepareShards(objectSize int, objectsLimit int32) e
 	return nil
 }
 
-func (p *HKVTableWithString) objectPoolInvokeReleaseObjectString() {
+func (p *HKVTableWithUint64) objectPoolInvokeReleaseObjectUint64() {
 	var (
 		shardIndex      uint32
-		shard           *map[string]HKVTableObjectUPtrWithString
+		shard           *map[uint64]HKVTableObjectUPtrWithUint64
 		shardRWMutex    *sync.RWMutex
-		objKey          string
-		uObject         HKVTableObjectUPtrWithString
-		uReleaseTargetK string
-		uReleaseTarget  HKVTableObjectUPtrWithString
+		objKey          uint64
+		uObject         HKVTableObjectUPtrWithUint64
+		uReleaseTargetK uint64
+		uReleaseTarget  HKVTableObjectUPtrWithUint64
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
@@ -144,26 +144,26 @@ FIND_TARGET_DONE:
 	}
 }
 
-func (p *HKVTableWithString) allocObjectWithStringWithReadAcquire(objKey string) HKVTableObjectUPtrWithString {
-	var uObject = HKVTableObjectUPtrWithString(p.objectPool.AllocRawObject())
+func (p *HKVTableWithUint64) allocObjectWithUint64WithReadAcquire(objKey uint64) HKVTableObjectUPtrWithUint64 {
+	var uObject = HKVTableObjectUPtrWithUint64(p.objectPool.AllocRawObject())
 	uObject.Ptr().ReadAcquire()
 	uObject.Ptr().ID = objKey
 	return uObject
 }
 
-func (p *HKVTableWithString) checkObject(v HKVTableObjectUPtrWithString, objKey string) bool {
+func (p *HKVTableWithUint64) checkObject(v HKVTableObjectUPtrWithUint64, objKey uint64) bool {
 	return v.Ptr().ID == objKey && v.Ptr().IsInited()
 }
 
-func (p *HKVTableWithString) TryGetObjectWithReadAcquire(objKey string) uintptr {
+func (p *HKVTableWithUint64) TryGetObjectWithReadAcquire(objKey uint64) uintptr {
 	var (
-		uObject      HKVTableObjectUPtrWithString = 0
-		shard        *map[string]HKVTableObjectUPtrWithString
+		uObject      HKVTableObjectUPtrWithUint64 = 0
+		shard        *map[uint64]HKVTableObjectUPtrWithUint64
 		shardRWMutex *sync.RWMutex
 	)
 
 	{
-		shardIndex := p.GetShardWithString(objKey)
+		shardIndex := p.GetShardWithUint64(objKey)
 		shard = &p.shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
@@ -183,16 +183,16 @@ func (p *HKVTableWithString) TryGetObjectWithReadAcquire(objKey string) uintptr 
 	return uintptr(uObject)
 }
 
-func (p *HKVTableWithString) MustGetObjectWithReadAcquire(objKey string) (uintptr, bool) {
+func (p *HKVTableWithUint64) MustGetObjectWithReadAcquire(objKey uint64) (uintptr, bool) {
 	var (
-		uObject      HKVTableObjectUPtrWithString = 0
-		shard        *map[string]HKVTableObjectUPtrWithString
+		uObject      HKVTableObjectUPtrWithUint64 = 0
+		shard        *map[uint64]HKVTableObjectUPtrWithUint64
 		shardRWMutex *sync.RWMutex
 		loaded       bool = false
 	)
 
 	{
-		shardIndex := p.GetShardWithString(objKey)
+		shardIndex := p.GetShardWithUint64(objKey)
 		shard = &p.shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
@@ -217,7 +217,7 @@ func (p *HKVTableWithString) MustGetObjectWithReadAcquire(objKey string) (uintpt
 	}
 
 	var (
-		uNewObject        = p.allocObjectWithStringWithReadAcquire(objKey)
+		uNewObject        = p.allocObjectWithUint64WithReadAcquire(objKey)
 		isNewObjectSetted = false
 	)
 
@@ -256,15 +256,15 @@ func (p *HKVTableWithString) MustGetObjectWithReadAcquire(objKey string) (uintpt
 	return uintptr(uObject), loaded
 }
 
-func (p *HKVTableWithString) DeleteObject(objKey string) {
+func (p *HKVTableWithUint64) DeleteObject(objKey uint64) {
 	var (
-		uObject      HKVTableObjectUPtrWithString
-		shard        *map[string]HKVTableObjectUPtrWithString
+		uObject      HKVTableObjectUPtrWithUint64
+		shard        *map[uint64]HKVTableObjectUPtrWithUint64
 		shardRWMutex *sync.RWMutex
 	)
 
 	{
-		shardIndex := p.GetShardWithString(objKey)
+		shardIndex := p.GetShardWithUint64(objKey)
 		shard = &p.shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
@@ -305,6 +305,6 @@ func (p *HKVTableWithString) DeleteObject(objKey string) {
 	}
 }
 
-func (p *HKVTableWithString) ReadReleaseObject(uObject HKVTableObjectUPtrWithString) {
+func (p *HKVTableWithUint64) ReadReleaseObject(uObject HKVTableObjectUPtrWithUint64) {
 	uObject.Ptr().ReadRelease()
 }

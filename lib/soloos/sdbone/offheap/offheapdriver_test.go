@@ -1,72 +1,86 @@
 package offheap
 
 import (
+	"runtime"
+	"sync"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"unsafe"
 )
 
-type MockOffheapDriver struct {
-	offheapDriver  *OffheapDriver
-	mockChunkPools map[int32]*MockChunkPool
-	chunks         map[int32]ChunkUintptr
+const TStructSize = int(unsafe.Sizeof(T{}))
+
+type T struct {
+	i    byte
+	Data [1024]byte
 }
 
-func (p *MockOffheapDriver) Init(offheapDriver *OffheapDriver) error {
-	p.offheapDriver = offheapDriver
-	p.offheapDriver.Init()
-	p.mockChunkPools = make(map[int32]*MockChunkPool)
-	p.chunks = make(map[int32]ChunkUintptr)
-	return nil
+func (p *T) test() {
+	p.Data[0] = p.i
+	p.i += 1
 }
 
-func (p *MockOffheapDriver) Put(chunk ChunkUintptr) {
-	p.chunks[chunk.Ptr().ID] = chunk
+type TUintptr uintptr
+
+func (u TUintptr) Ptr() *T { return (*T)(unsafe.Pointer(u)) }
+
+type TPool struct {
+	rawObjectPool RawObjectPool
 }
 
-func (p *MockOffheapDriver) InitChunkPool(chunkSize int, chunksLimit int32) error {
-	var err error
+func (p *TPool) Init(structSize int, objectsLimit int32) {
+	p.rawObjectPool.Init(structSize, -1, nil, nil)
+}
 
-	mockChunkPool := new(MockChunkPool)
-	err = mockChunkPool.Init(p.chunks, p.offheapDriver, chunkSize, chunksLimit)
-	if err != nil {
-		return err
+func BenchmarkOffheapRawObjectPool(b *testing.B) {
+	runtime.GC()
+	var tPool TPool
+	tPool.Init(TStructSize, int32(b.N))
+	var t TUintptr
+
+	for run := 0; run < 2; run++ {
+		for n := 0; n < b.N; n++ {
+			if n%10000 == 0 {
+				runtime.GC()
+			}
+			t = TUintptr(tPool.rawObjectPool.AllocRawObject())
+			t.Ptr().test()
+			tPool.rawObjectPool.ReleaseRawObject(uintptr(t))
+		}
 	}
 
-	p.mockChunkPools[int32(chunkSize)] = mockChunkPool
-	return nil
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		if n%10000 == 0 {
+			runtime.GC()
+		}
+		tPool.rawObjectPool.AllocRawObject()
+	}
 }
 
-func MakeMockOffheapDriver(t *testing.T, chunksSizes []int, chunksLimit int32) *MockOffheapDriver {
-	var (
-		mockOffheapDriver MockOffheapDriver
-	)
+func BenchmarkOffheapSyncPool(b *testing.B) {
+	runtime.GC()
+	var pool sync.Pool
+	pool.New = func() interface{} {
+		return new(T)
+	}
+	var t *T
 
-	chunkDrver := new(OffheapDriver)
-	assert.NoError(t, chunkDrver.Init())
-	assert.NoError(t, mockOffheapDriver.Init(chunkDrver))
-
-	for _, chunkSize := range chunksSizes {
-		mockOffheapDriver.InitChunkPool(chunkSize, chunksLimit)
+	for run := 0; run < 2; run++ {
+		for n := 0; n < b.N; n++ {
+			if n%10000 == 0 {
+				runtime.GC()
+			}
+			t = pool.Get().(*T)
+			t.test()
+			pool.Put(t)
+		}
 	}
 
-	return &mockOffheapDriver
-}
-
-func TestOffheapDriverAllocChunk(t *testing.T) {
-	var chunksLimit int32 = 20
-	mockOffheapDriver := MakeMockOffheapDriver(t, []int{2, 4}, chunksLimit)
-
-	var chunk ChunkUintptr
-	var i int32
-	for i = 0; i <= chunksLimit; i++ {
-		chunk = mockOffheapDriver.mockChunkPools[2].AllocChunk()
-		mockOffheapDriver.Put(chunk)
-		assert.NotNil(t, chunk.Ptr())
-		assert.NotNil(t, chunk.Ptr().Data)
-	}
-
-	for i = 0; i < chunksLimit; i++ {
-		mockOffheapDriver.mockChunkPools[2].ChunkPoolInvokeReleaseChunk()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		if n%10000 == 0 {
+			runtime.GC()
+		}
+		pool.Get()
 	}
 }

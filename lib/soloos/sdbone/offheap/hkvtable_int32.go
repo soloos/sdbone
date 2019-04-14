@@ -20,34 +20,33 @@ type HKVTableObjectWithInt32 struct {
 
 // Heavy Key-Value table
 type HKVTableWithInt32 struct {
-	HKVTableCommon
-	shareds []map[int32]HKVTableObjectUPtrWithInt32
+	KVTableCommon
+	shards []map[int32]HKVTableObjectUPtrWithInt32
 }
 
-func (p *OffheapDriver) CreateHKVTableWithInt32(name string,
-	objectSize int, objectsLimit int32, sharedCount uint32,
-	prepareNewObjectFunc HKVTableInvokePrepareNewObject,
-	beforeReleaseObjectFunc HKVTableInvokeBeforeReleaseObject,
-) (*HKVTableWithInt32, error) {
+func (p *OffheapDriver) InitHKVTableWithInt32(kvTable *HKVTableWithInt32, name string,
+	objectSize int, objectsLimit int32, shardCount uint32,
+	prepareNewObjectFunc KVTableInvokePrepareNewObject,
+	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
+) error {
 	var (
-		kvTable = new(HKVTableWithInt32)
-		err     error
+		err error
 	)
-	err = kvTable.Init(name, objectSize, objectsLimit, sharedCount,
+	err = kvTable.Init(name, objectSize, objectsLimit, shardCount,
 		prepareNewObjectFunc,
 		beforeReleaseObjectFunc,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return kvTable, err
+	return err
 }
 
 func (p *HKVTableWithInt32) Init(name string,
-	objectSize int, objectsLimit int32, sharedCount uint32,
-	prepareNewObjectFunc HKVTableInvokePrepareNewObject,
-	beforeReleaseObjectFunc HKVTableInvokeBeforeReleaseObject,
+	objectSize int, objectsLimit int32, shardCount uint32,
+	prepareNewObjectFunc KVTableInvokePrepareNewObject,
+	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
 ) error {
 	var err error
 
@@ -55,10 +54,10 @@ func (p *HKVTableWithInt32) Init(name string,
 	p.objectSize = objectSize
 	p.objectsLimit = objectsLimit
 
-	p.sharedCount = sharedCount
-	p.sharedRWMutexs = make([]sync.RWMutex, p.sharedCount)
+	p.shardCount = shardCount
+	p.shardRWMutexs = make([]sync.RWMutex, p.shardCount)
 
-	err = p.prepareShareds(p.objectSize, p.objectsLimit)
+	err = p.prepareShards(p.objectSize, p.objectsLimit)
 	if err != nil {
 		return err
 	}
@@ -73,19 +72,18 @@ func (p *HKVTableWithInt32) Name() string {
 	return p.name
 }
 
-func (p *HKVTableWithInt32) prepareShareds(objectSize int, objectsLimit int32) error {
+func (p *HKVTableWithInt32) prepareShards(objectSize int, objectsLimit int32) error {
 	var (
-		sharedIndex uint32
-		err         error
+		shardIndex uint32
+		err        error
 	)
-	p.shareds = make([]map[int32]HKVTableObjectUPtrWithInt32, p.sharedCount)
-	for sharedIndex = 0; sharedIndex < p.sharedCount; sharedIndex++ {
-		p.shareds[sharedIndex] = make(map[int32]HKVTableObjectUPtrWithInt32)
+	p.shards = make([]map[int32]HKVTableObjectUPtrWithInt32, p.shardCount)
+	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
+		p.shards[shardIndex] = make(map[int32]HKVTableObjectUPtrWithInt32)
 	}
 
-	err = p.chunkPool.Init(-1, objectSize, objectsLimit,
-		p.chunkPoolInvokePrepareNewChunk,
-		p.chunkPoolInvokeReleaseChunkInt32)
+	err = p.objectPool.Init(objectSize, objectsLimit,
+		nil, p.objectPoolInvokeReleaseObjectInt32)
 	if err != nil {
 		return err
 	}
@@ -93,54 +91,48 @@ func (p *HKVTableWithInt32) prepareShareds(objectSize int, objectsLimit int32) e
 	return nil
 }
 
-func (p *HKVTableWithInt32) chunkPoolInvokePrepareNewChunk(uChunk uintptr) {
-	if p.prepareNewObjectFunc != nil {
-		p.prepareNewObjectFunc(uChunk)
-	}
-}
-
-func (p *HKVTableWithInt32) chunkPoolInvokeReleaseChunkInt32() {
+func (p *HKVTableWithInt32) objectPoolInvokeReleaseObjectInt32() {
 	var (
-		sharedIndex     uint32
-		shared          *map[int32]HKVTableObjectUPtrWithInt32
-		sharedRWMutex   *sync.RWMutex
+		shardIndex      uint32
+		shard           *map[int32]HKVTableObjectUPtrWithInt32
+		shardRWMutex    *sync.RWMutex
 		objKey          int32
 		uObject         HKVTableObjectUPtrWithInt32
 		uReleaseTargetK int32
 		uReleaseTarget  HKVTableObjectUPtrWithInt32
 	)
 
-	for sharedIndex = 0; sharedIndex < p.sharedCount; sharedIndex++ {
-		shared = &p.shareds[sharedIndex]
-		sharedRWMutex = &p.sharedRWMutexs[sharedIndex]
+	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
+		shard = &p.shards[shardIndex]
+		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
-		sharedRWMutex.RLock()
-		for objKey, uObject = range *shared {
+		shardRWMutex.RLock()
+		for objKey, uObject = range *shard {
 			if uObject.Ptr().IsInited() && uObject.Ptr().GetAccessor() == 0 {
 				uReleaseTargetK = objKey
 				uReleaseTarget = uObject
 				break
 			}
 		}
-		sharedRWMutex.RUnlock()
+		shardRWMutex.RUnlock()
 		if uReleaseTarget != 0 {
 			goto FIND_TARGET_DONE
 		}
 	}
 
-	for sharedIndex = 0; sharedIndex < p.sharedCount; sharedIndex++ {
-		shared = &p.shareds[sharedIndex]
-		sharedRWMutex = &p.sharedRWMutexs[sharedIndex]
+	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
+		shard = &p.shards[shardIndex]
+		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
-		sharedRWMutex.RLock()
-		for objKey, uObject = range *shared {
+		shardRWMutex.RLock()
+		for objKey, uObject = range *shard {
 			if uObject.Ptr().IsInited() {
 				uReleaseTargetK = objKey
 				uReleaseTarget = uObject
 				break
 			}
 		}
-		sharedRWMutex.RUnlock()
+		shardRWMutex.RUnlock()
 		if uReleaseTarget != 0 {
 			goto FIND_TARGET_DONE
 		}
@@ -153,10 +145,9 @@ FIND_TARGET_DONE:
 }
 
 func (p *HKVTableWithInt32) allocObjectWithInt32WithReadAcquire(objKey int32) HKVTableObjectUPtrWithInt32 {
-	var uObject = HKVTableObjectUPtrWithInt32(p.chunkPool.AllocRawChunk())
+	var uObject = HKVTableObjectUPtrWithInt32(p.objectPool.AllocRawObject())
 	uObject.Ptr().ReadAcquire()
 	uObject.Ptr().ID = objKey
-	uObject.Ptr().CompleteInit()
 	return uObject
 }
 
@@ -166,20 +157,20 @@ func (p *HKVTableWithInt32) checkObject(v HKVTableObjectUPtrWithInt32, objKey in
 
 func (p *HKVTableWithInt32) TryGetObjectWithReadAcquire(objKey int32) uintptr {
 	var (
-		uObject       HKVTableObjectUPtrWithInt32 = 0
-		shared        *map[int32]HKVTableObjectUPtrWithInt32
-		sharedRWMutex *sync.RWMutex
+		uObject      HKVTableObjectUPtrWithInt32 = 0
+		shard        *map[int32]HKVTableObjectUPtrWithInt32
+		shardRWMutex *sync.RWMutex
 	)
 
 	{
-		sharedIndex := p.GetSharedWithInt32(objKey)
-		shared = &p.shareds[sharedIndex]
-		sharedRWMutex = &p.sharedRWMutexs[sharedIndex]
+		shardIndex := p.GetShardWithInt32(objKey)
+		shard = &p.shards[shardIndex]
+		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
-	sharedRWMutex.RLock()
-	uObject, _ = (*shared)[objKey]
-	sharedRWMutex.RUnlock()
+	shardRWMutex.RLock()
+	uObject, _ = (*shard)[objKey]
+	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
 		uObject.Ptr().ReadAcquire()
@@ -194,21 +185,21 @@ func (p *HKVTableWithInt32) TryGetObjectWithReadAcquire(objKey int32) uintptr {
 
 func (p *HKVTableWithInt32) MustGetObjectWithReadAcquire(objKey int32) (uintptr, bool) {
 	var (
-		uObject       HKVTableObjectUPtrWithInt32 = 0
-		shared        *map[int32]HKVTableObjectUPtrWithInt32
-		sharedRWMutex *sync.RWMutex
-		loaded        bool = false
+		uObject      HKVTableObjectUPtrWithInt32 = 0
+		shard        *map[int32]HKVTableObjectUPtrWithInt32
+		shardRWMutex *sync.RWMutex
+		loaded       bool = false
 	)
 
 	{
-		sharedIndex := p.GetSharedWithInt32(objKey)
-		shared = &p.shareds[sharedIndex]
-		sharedRWMutex = &p.sharedRWMutexs[sharedIndex]
+		shardIndex := p.GetShardWithInt32(objKey)
+		shard = &p.shards[shardIndex]
+		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
-	sharedRWMutex.RLock()
-	uObject, loaded = (*shared)[objKey]
-	sharedRWMutex.RUnlock()
+	shardRWMutex.RLock()
+	uObject, loaded = (*shard)[objKey]
+	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
 		uObject.Ptr().ReadAcquire()
@@ -231,14 +222,14 @@ func (p *HKVTableWithInt32) MustGetObjectWithReadAcquire(objKey int32) (uintptr,
 	)
 
 	for isNewObjectSetted == false && loaded == false {
-		sharedRWMutex.Lock()
-		uObject, loaded = (*shared)[objKey]
+		shardRWMutex.Lock()
+		uObject, loaded = (*shard)[objKey]
 		if uObject == 0 {
 			uObject = uNewObject
-			(*shared)[objKey] = uObject
+			(*shard)[objKey] = uObject
 			isNewObjectSetted = true
 		}
-		sharedRWMutex.Unlock()
+		shardRWMutex.Unlock()
 
 		if isNewObjectSetted == false {
 			uObject.Ptr().ReadAcquire()
@@ -255,7 +246,11 @@ func (p *HKVTableWithInt32) MustGetObjectWithReadAcquire(objKey int32) (uintptr,
 	if isNewObjectSetted == false {
 		uNewObject.Ptr().Reset()
 		uNewObject.Ptr().ReadRelease()
-		p.chunkPool.ReleaseRawChunk(uintptr(uNewObject))
+		p.objectPool.ReleaseRawObject(uintptr(uNewObject))
+	} else {
+		if p.prepareNewObjectFunc != nil {
+			p.prepareNewObjectFunc(uintptr(uObject))
+		}
 	}
 
 	return uintptr(uObject), loaded
@@ -263,21 +258,21 @@ func (p *HKVTableWithInt32) MustGetObjectWithReadAcquire(objKey int32) (uintptr,
 
 func (p *HKVTableWithInt32) DeleteObject(objKey int32) {
 	var (
-		uObject       HKVTableObjectUPtrWithInt32
-		shared        *map[int32]HKVTableObjectUPtrWithInt32
-		sharedRWMutex *sync.RWMutex
+		uObject      HKVTableObjectUPtrWithInt32
+		shard        *map[int32]HKVTableObjectUPtrWithInt32
+		shardRWMutex *sync.RWMutex
 	)
 
 	{
-		sharedIndex := p.GetSharedWithInt32(objKey)
-		shared = &p.shareds[sharedIndex]
-		sharedRWMutex = &p.sharedRWMutexs[sharedIndex]
+		shardIndex := p.GetShardWithInt32(objKey)
+		shard = &p.shards[shardIndex]
+		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
 	for uObject == 0 {
-		sharedRWMutex.RLock()
-		uObject, _ = (*shared)[objKey]
-		sharedRWMutex.RUnlock()
+		shardRWMutex.RLock()
+		uObject, _ = (*shard)[objKey]
+		shardRWMutex.RUnlock()
 
 		if uObject == 0 {
 			return
@@ -295,17 +290,21 @@ func (p *HKVTableWithInt32) DeleteObject(objKey int32) {
 	if p.beforeReleaseObjectFunc != nil {
 		p.beforeReleaseObjectFunc(uintptr(uObject))
 	} else {
+		uObject.Ptr().Reset()
 		uObject.Ptr().SetReleasable()
 	}
 
 	if uObject.Ptr().EnsureRelease() {
-		sharedRWMutex.Lock()
-		delete(*shared, objKey)
-		sharedRWMutex.Unlock()
-		uObject.Ptr().Reset()
+		shardRWMutex.Lock()
+		delete(*shard, objKey)
+		shardRWMutex.Unlock()
 		uObject.Ptr().WriteRelease()
-		p.chunkPool.ReleaseRawChunk(uintptr(uObject))
+		p.objectPool.ReleaseRawObject(uintptr(uObject))
 	} else {
 		uObject.Ptr().WriteRelease()
 	}
+}
+
+func (p *HKVTableWithInt32) ReadReleaseObject(uObject HKVTableObjectUPtrWithInt32) {
+	uObject.Ptr().ReadRelease()
 }
