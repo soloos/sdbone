@@ -21,7 +21,7 @@ type HKVTableObjectWithMagicKeyName struct {
 // Heavy Key-Value table
 type HKVTableWithMagicKeyName struct {
 	KVTableCommon
-	shards []map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName
+	Shards []map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName
 }
 
 func (p *OffheapDriver) InitHKVTableWithMagicKeyName(kvTable *HKVTableWithMagicKeyName, name string,
@@ -77,9 +77,9 @@ func (p *HKVTableWithMagicKeyName) prepareShards(objectSize int, objectsLimit in
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName, p.shardCount)
+	p.Shards = make([]map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName)
+		p.Shards[shardIndex] = make(map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
@@ -103,7 +103,7 @@ func (p *HKVTableWithMagicKeyName) objectPoolInvokeReleaseObjectMagicKeyName() {
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -121,7 +121,7 @@ func (p *HKVTableWithMagicKeyName) objectPoolInvokeReleaseObjectMagicKeyName() {
 	}
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -164,7 +164,7 @@ func (p *HKVTableWithMagicKeyName) TryGetObjectWithReadAcquire(objKey MagicKeyTy
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -193,7 +193,7 @@ func (p *HKVTableWithMagicKeyName) MustGetObjectWithReadAcquire(objKey MagicKeyT
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -265,7 +265,7 @@ func (p *HKVTableWithMagicKeyName) DeleteObject(objKey MagicKeyType) {
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 

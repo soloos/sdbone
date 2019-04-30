@@ -8,8 +8,9 @@ package offheap
 
 import "sync"
 
-type KVTableInvokePrepareNewObject func(v uintptr)
-type KVTableInvokeBeforeReleaseObject func(v uintptr)
+type KVTableAfterSetNewObj func()
+type KVTableInvokePrepareNewObject func(u uintptr)
+type KVTableInvokeBeforeReleaseObject func(u uintptr)
 
 // KVTableObjectPoolObject
 // user -> MustGetKVTableObjectWithReadAcquire -> allocObjectFromObjectPool ->

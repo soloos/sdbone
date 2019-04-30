@@ -21,7 +21,7 @@ type HKVTableObjectWithInt32 struct {
 // Heavy Key-Value table
 type HKVTableWithInt32 struct {
 	KVTableCommon
-	shards []map[int32]HKVTableObjectUPtrWithInt32
+	Shards []map[int32]HKVTableObjectUPtrWithInt32
 }
 
 func (p *OffheapDriver) InitHKVTableWithInt32(kvTable *HKVTableWithInt32, name string,
@@ -77,9 +77,9 @@ func (p *HKVTableWithInt32) prepareShards(objectSize int, objectsLimit int32) er
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[int32]HKVTableObjectUPtrWithInt32, p.shardCount)
+	p.Shards = make([]map[int32]HKVTableObjectUPtrWithInt32, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[int32]HKVTableObjectUPtrWithInt32)
+		p.Shards[shardIndex] = make(map[int32]HKVTableObjectUPtrWithInt32)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
@@ -103,7 +103,7 @@ func (p *HKVTableWithInt32) objectPoolInvokeReleaseObjectInt32() {
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -121,7 +121,7 @@ func (p *HKVTableWithInt32) objectPoolInvokeReleaseObjectInt32() {
 	}
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -164,7 +164,7 @@ func (p *HKVTableWithInt32) TryGetObjectWithReadAcquire(objKey int32) uintptr {
 
 	{
 		shardIndex := p.GetShardWithInt32(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -193,7 +193,7 @@ func (p *HKVTableWithInt32) MustGetObjectWithReadAcquire(objKey int32) (uintptr,
 
 	{
 		shardIndex := p.GetShardWithInt32(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -265,7 +265,7 @@ func (p *HKVTableWithInt32) DeleteObject(objKey int32) {
 
 	{
 		shardIndex := p.GetShardWithInt32(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 

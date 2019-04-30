@@ -21,7 +21,7 @@ type HKVTableObjectWithString struct {
 // Heavy Key-Value table
 type HKVTableWithString struct {
 	KVTableCommon
-	shards []map[string]HKVTableObjectUPtrWithString
+	Shards []map[string]HKVTableObjectUPtrWithString
 }
 
 func (p *OffheapDriver) InitHKVTableWithString(kvTable *HKVTableWithString, name string,
@@ -77,9 +77,9 @@ func (p *HKVTableWithString) prepareShards(objectSize int, objectsLimit int32) e
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[string]HKVTableObjectUPtrWithString, p.shardCount)
+	p.Shards = make([]map[string]HKVTableObjectUPtrWithString, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[string]HKVTableObjectUPtrWithString)
+		p.Shards[shardIndex] = make(map[string]HKVTableObjectUPtrWithString)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
@@ -103,7 +103,7 @@ func (p *HKVTableWithString) objectPoolInvokeReleaseObjectString() {
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -121,7 +121,7 @@ func (p *HKVTableWithString) objectPoolInvokeReleaseObjectString() {
 	}
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -164,7 +164,7 @@ func (p *HKVTableWithString) TryGetObjectWithReadAcquire(objKey string) uintptr 
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -193,7 +193,7 @@ func (p *HKVTableWithString) MustGetObjectWithReadAcquire(objKey string) (uintpt
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -265,7 +265,7 @@ func (p *HKVTableWithString) DeleteObject(objKey string) {
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 

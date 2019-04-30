@@ -21,7 +21,7 @@ type HKVTableObjectWithBytes12 struct {
 // Heavy Key-Value table
 type HKVTableWithBytes12 struct {
 	KVTableCommon
-	shards []map[[12]byte]HKVTableObjectUPtrWithBytes12
+	Shards []map[[12]byte]HKVTableObjectUPtrWithBytes12
 }
 
 func (p *OffheapDriver) InitHKVTableWithBytes12(kvTable *HKVTableWithBytes12, name string,
@@ -77,9 +77,9 @@ func (p *HKVTableWithBytes12) prepareShards(objectSize int, objectsLimit int32) 
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[[12]byte]HKVTableObjectUPtrWithBytes12, p.shardCount)
+	p.Shards = make([]map[[12]byte]HKVTableObjectUPtrWithBytes12, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[[12]byte]HKVTableObjectUPtrWithBytes12)
+		p.Shards[shardIndex] = make(map[[12]byte]HKVTableObjectUPtrWithBytes12)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
@@ -103,7 +103,7 @@ func (p *HKVTableWithBytes12) objectPoolInvokeReleaseObjectBytes12() {
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -121,7 +121,7 @@ func (p *HKVTableWithBytes12) objectPoolInvokeReleaseObjectBytes12() {
 	}
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -164,7 +164,7 @@ func (p *HKVTableWithBytes12) TryGetObjectWithReadAcquire(objKey [12]byte) uintp
 
 	{
 		shardIndex := p.GetShardWithBytes12(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -193,7 +193,7 @@ func (p *HKVTableWithBytes12) MustGetObjectWithReadAcquire(objKey [12]byte) (uin
 
 	{
 		shardIndex := p.GetShardWithBytes12(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -265,7 +265,7 @@ func (p *HKVTableWithBytes12) DeleteObject(objKey [12]byte) {
 
 	{
 		shardIndex := p.GetShardWithBytes12(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 

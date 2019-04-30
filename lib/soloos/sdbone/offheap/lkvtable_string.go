@@ -21,19 +21,19 @@ type LKVTableObjectWithString struct {
 // Heavy Key-Value table
 type LKVTableWithString struct {
 	KVTableCommon
-	shards []map[string]LKVTableObjectUPtrWithString
+	Shards []map[string]LKVTableObjectUPtrWithString
+
+	ReleaseObjectPolicyIsNeedRelease bool
 }
 
 func (p *OffheapDriver) InitLKVTableWithString(kvTable *LKVTableWithString, name string,
 	objectSize int, objectsLimit int32, shardCount uint32,
-	prepareNewObjectFunc KVTableInvokePrepareNewObject,
 	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
 ) error {
 	var (
 		err error
 	)
 	err = kvTable.Init(name, objectSize, objectsLimit, shardCount,
-		prepareNewObjectFunc,
 		beforeReleaseObjectFunc,
 	)
 	if err != nil {
@@ -45,7 +45,6 @@ func (p *OffheapDriver) InitLKVTableWithString(kvTable *LKVTableWithString, name
 
 func (p *LKVTableWithString) Init(name string,
 	objectSize int, objectsLimit int32, shardCount uint32,
-	prepareNewObjectFunc KVTableInvokePrepareNewObject,
 	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
 ) error {
 	var err error
@@ -62,8 +61,9 @@ func (p *LKVTableWithString) Init(name string,
 		return err
 	}
 
-	p.prepareNewObjectFunc = prepareNewObjectFunc
 	p.beforeReleaseObjectFunc = beforeReleaseObjectFunc
+
+	p.ReleaseObjectPolicyIsNeedRelease = false
 
 	return nil
 }
@@ -77,9 +77,9 @@ func (p *LKVTableWithString) prepareShards(objectSize int, objectsLimit int32) e
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[string]LKVTableObjectUPtrWithString, p.shardCount)
+	p.Shards = make([]map[string]LKVTableObjectUPtrWithString, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[string]LKVTableObjectUPtrWithString)
+		p.Shards[shardIndex] = make(map[string]LKVTableObjectUPtrWithString)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
@@ -103,7 +103,7 @@ func (p *LKVTableWithString) objectPoolInvokeReleaseObjectString() {
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -142,7 +142,7 @@ func (p *LKVTableWithString) TryGetObjectWithAcquire(objKey string) uintptr {
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -156,44 +156,50 @@ func (p *LKVTableWithString) TryGetObjectWithAcquire(objKey string) uintptr {
 	return uintptr(uObject)
 }
 
-func (p *LKVTableWithString) MustGetObjectWithAcquire(objKey string) (uintptr, bool) {
+// MustGetObjectWithAcquire return uObject, loaded
+func (p *LKVTableWithString) MustGetObjectWithAcquire(objKey string) (uintptr, KVTableAfterSetNewObj) {
 	var (
-		uObject      LKVTableObjectUPtrWithString = 0
-		shard        *map[string]LKVTableObjectUPtrWithString
-		shardRWMutex *sync.RWMutex
-		loaded       bool = false
+		uObject           LKVTableObjectUPtrWithString = 0
+		shard             *map[string]LKVTableObjectUPtrWithString
+		shardRWMutex      *sync.RWMutex
+		isNewObjectSetted bool = false
 	)
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
 	shardRWMutex.RLock()
-	uObject, loaded = (*shard)[objKey]
+	uObject, _ = (*shard)[objKey]
 	if uObject != 0 {
 		uObject.Ptr().Acquire()
 	}
 	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
-		return uintptr(uObject), loaded
+		return uintptr(uObject), nil
 	}
 
 	shardRWMutex.Lock()
-	uObject, loaded = (*shard)[objKey]
+	uObject, _ = (*shard)[objKey]
+	var afterSetObj KVTableAfterSetNewObj = func() {
+		uObject.Ptr().Acquire()
+		shardRWMutex.Unlock()
+	}
 	if uObject == 0 {
 		uObject = p.allocObjectWithStringWithAcquire(objKey)
 		(*shard)[objKey] = uObject
-		if p.prepareNewObjectFunc != nil {
-			p.prepareNewObjectFunc(uintptr(uObject))
-		}
+		isNewObjectSetted = true
 	}
-	uObject.Ptr().Acquire()
-	shardRWMutex.Unlock()
 
-	return uintptr(uObject), loaded
+	if isNewObjectSetted == false {
+		afterSetObj()
+		return uintptr(uObject), nil
+	}
+
+	return uintptr(uObject), afterSetObj
 }
 
 func (p *LKVTableWithString) DeleteObject(objKey string) {
@@ -205,7 +211,7 @@ func (p *LKVTableWithString) DeleteObject(objKey string) {
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -222,11 +228,7 @@ func (p *LKVTableWithString) DeleteObject(objKey string) {
 }
 
 func (p *LKVTableWithString) ReleaseObject(uObject LKVTableObjectUPtrWithString) {
-	var isShouldRelease = false
-	if uObject.Ptr().Release() == 0 {
-		isShouldRelease = true
-	}
-
+	var isShouldRelease = (uObject.Ptr().Release() == 0) && p.ReleaseObjectPolicyIsNeedRelease
 	if isShouldRelease == false {
 		return
 	}
@@ -239,7 +241,7 @@ func (p *LKVTableWithString) ReleaseObject(uObject LKVTableObjectUPtrWithString)
 
 	{
 		shardIndex := p.GetShardWithString(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 

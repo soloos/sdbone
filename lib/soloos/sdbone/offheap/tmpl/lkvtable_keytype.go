@@ -21,19 +21,19 @@ type LKVTableObjectWithMagicKeyName struct {
 // Heavy Key-Value table
 type LKVTableWithMagicKeyName struct {
 	KVTableCommon
-	shards []map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName
+	Shards []map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName
+
+	ReleaseObjectPolicyIsNeedRelease bool
 }
 
 func (p *OffheapDriver) InitLKVTableWithMagicKeyName(kvTable *LKVTableWithMagicKeyName, name string,
 	objectSize int, objectsLimit int32, shardCount uint32,
-	prepareNewObjectFunc KVTableInvokePrepareNewObject,
 	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
 ) error {
 	var (
 		err error
 	)
 	err = kvTable.Init(name, objectSize, objectsLimit, shardCount,
-		prepareNewObjectFunc,
 		beforeReleaseObjectFunc,
 	)
 	if err != nil {
@@ -45,7 +45,6 @@ func (p *OffheapDriver) InitLKVTableWithMagicKeyName(kvTable *LKVTableWithMagicK
 
 func (p *LKVTableWithMagicKeyName) Init(name string,
 	objectSize int, objectsLimit int32, shardCount uint32,
-	prepareNewObjectFunc KVTableInvokePrepareNewObject,
 	beforeReleaseObjectFunc KVTableInvokeBeforeReleaseObject,
 ) error {
 	var err error
@@ -62,8 +61,9 @@ func (p *LKVTableWithMagicKeyName) Init(name string,
 		return err
 	}
 
-	p.prepareNewObjectFunc = prepareNewObjectFunc
 	p.beforeReleaseObjectFunc = beforeReleaseObjectFunc
+
+	p.ReleaseObjectPolicyIsNeedRelease = false
 
 	return nil
 }
@@ -77,9 +77,9 @@ func (p *LKVTableWithMagicKeyName) prepareShards(objectSize int, objectsLimit in
 		shardIndex uint32
 		err        error
 	)
-	p.shards = make([]map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName, p.shardCount)
+	p.Shards = make([]map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName, p.shardCount)
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		p.shards[shardIndex] = make(map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName)
+		p.Shards[shardIndex] = make(map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName)
 	}
 
 	err = p.objectPool.Init(objectSize, objectsLimit,
@@ -103,7 +103,7 @@ func (p *LKVTableWithMagicKeyName) objectPoolInvokeReleaseObjectMagicKeyName() {
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
@@ -142,7 +142,7 @@ func (p *LKVTableWithMagicKeyName) TryGetObjectWithAcquire(objKey MagicKeyType) 
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -156,44 +156,50 @@ func (p *LKVTableWithMagicKeyName) TryGetObjectWithAcquire(objKey MagicKeyType) 
 	return uintptr(uObject)
 }
 
-func (p *LKVTableWithMagicKeyName) MustGetObjectWithAcquire(objKey MagicKeyType) (uintptr, bool) {
+// MustGetObjectWithAcquire return uObject, loaded
+func (p *LKVTableWithMagicKeyName) MustGetObjectWithAcquire(objKey MagicKeyType) (uintptr, KVTableAfterSetNewObj) {
 	var (
-		uObject      LKVTableObjectUPtrWithMagicKeyName = 0
-		shard        *map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName
-		shardRWMutex *sync.RWMutex
-		loaded       bool = false
+		uObject           LKVTableObjectUPtrWithMagicKeyName = 0
+		shard             *map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName
+		shardRWMutex      *sync.RWMutex
+		isNewObjectSetted bool = false
 	)
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
 	shardRWMutex.RLock()
-	uObject, loaded = (*shard)[objKey]
+	uObject, _ = (*shard)[objKey]
 	if uObject != 0 {
 		uObject.Ptr().Acquire()
 	}
 	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
-		return uintptr(uObject), loaded
+		return uintptr(uObject), nil
 	}
 
 	shardRWMutex.Lock()
-	uObject, loaded = (*shard)[objKey]
+	uObject, _ = (*shard)[objKey]
+	var afterSetObj KVTableAfterSetNewObj = func() {
+		uObject.Ptr().Acquire()
+		shardRWMutex.Unlock()
+	}
 	if uObject == 0 {
 		uObject = p.allocObjectWithMagicKeyNameWithAcquire(objKey)
 		(*shard)[objKey] = uObject
-		if p.prepareNewObjectFunc != nil {
-			p.prepareNewObjectFunc(uintptr(uObject))
-		}
+		isNewObjectSetted = true
 	}
-	uObject.Ptr().Acquire()
-	shardRWMutex.Unlock()
 
-	return uintptr(uObject), loaded
+	if isNewObjectSetted == false {
+		afterSetObj()
+		return uintptr(uObject), nil
+	}
+
+	return uintptr(uObject), afterSetObj
 }
 
 func (p *LKVTableWithMagicKeyName) DeleteObject(objKey MagicKeyType) {
@@ -205,7 +211,7 @@ func (p *LKVTableWithMagicKeyName) DeleteObject(objKey MagicKeyType) {
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
@@ -222,11 +228,7 @@ func (p *LKVTableWithMagicKeyName) DeleteObject(objKey MagicKeyType) {
 }
 
 func (p *LKVTableWithMagicKeyName) ReleaseObject(uObject LKVTableObjectUPtrWithMagicKeyName) {
-	var isShouldRelease = false
-	if uObject.Ptr().Release() == 0 {
-		isShouldRelease = true
-	}
-
+	var isShouldRelease = (uObject.Ptr().Release() == 0) && p.ReleaseObjectPolicyIsNeedRelease
 	if isShouldRelease == false {
 		return
 	}
@@ -239,7 +241,7 @@ func (p *LKVTableWithMagicKeyName) ReleaseObject(uObject LKVTableObjectUPtrWithM
 
 	{
 		shardIndex := p.GetShardWithMagicKeyName(objKey)
-		shard = &p.shards[shardIndex]
+		shard = &p.Shards[shardIndex]
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 	}
 
