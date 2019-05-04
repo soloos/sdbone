@@ -2,18 +2,6 @@ package offheap
 
 import "sync/atomic"
 
-var (
-	DefaultOffheapDriver OffheapDriver
-)
-
-func init() {
-	var err error
-	err = DefaultOffheapDriver.Init()
-	if err != nil {
-		panic(err)
-	}
-}
-
 type OffheapDriver struct {
 	maxTableID int64
 
