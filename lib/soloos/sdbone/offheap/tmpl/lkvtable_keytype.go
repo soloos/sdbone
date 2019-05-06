@@ -157,7 +157,7 @@ func (p *LKVTableWithMagicKeyName) TryGetObjectWithAcquire(objKey MagicKeyType) 
 }
 
 // MustGetObjectWithAcquire return uObject, loaded
-func (p *LKVTableWithMagicKeyName) MustGetObjectWithAcquire(objKey MagicKeyType) (uintptr, KVTableAfterSetNewObj) {
+func (p *LKVTableWithMagicKeyName) MustGetObjectWithAcquire(objKey MagicKeyType) (LKVTableObjectUPtrWithMagicKeyName, KVTableAfterSetNewObj) {
 	var (
 		uObject           LKVTableObjectUPtrWithMagicKeyName = 0
 		shard             *map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName
@@ -179,7 +179,7 @@ func (p *LKVTableWithMagicKeyName) MustGetObjectWithAcquire(objKey MagicKeyType)
 	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
-		return uintptr(uObject), nil
+		return uObject, nil
 	}
 
 	shardRWMutex.Lock()
@@ -196,10 +196,10 @@ func (p *LKVTableWithMagicKeyName) MustGetObjectWithAcquire(objKey MagicKeyType)
 
 	if isNewObjectSetted == false {
 		afterSetObj()
-		return uintptr(uObject), nil
+		return uObject, nil
 	}
 
-	return uintptr(uObject), afterSetObj
+	return uObject, afterSetObj
 }
 
 func (p *LKVTableWithMagicKeyName) DeleteObject(objKey MagicKeyType) {

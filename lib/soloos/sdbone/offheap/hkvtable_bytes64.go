@@ -183,7 +183,7 @@ func (p *HKVTableWithBytes64) TryGetObjectWithReadAcquire(objKey [64]byte) uintp
 	return uintptr(uObject)
 }
 
-func (p *HKVTableWithBytes64) MustGetObjectWithReadAcquire(objKey [64]byte) (uintptr, bool) {
+func (p *HKVTableWithBytes64) MustGetObjectWithReadAcquire(objKey [64]byte) (HKVTableObjectUPtrWithBytes64, bool) {
 	var (
 		uObject      HKVTableObjectUPtrWithBytes64 = 0
 		shard        *map[[64]byte]HKVTableObjectUPtrWithBytes64
@@ -213,7 +213,7 @@ func (p *HKVTableWithBytes64) MustGetObjectWithReadAcquire(objKey [64]byte) (uin
 	}
 
 	if uObject != 0 {
-		return uintptr(uObject), loaded
+		return uObject, loaded
 	}
 
 	var (
@@ -253,7 +253,7 @@ func (p *HKVTableWithBytes64) MustGetObjectWithReadAcquire(objKey [64]byte) (uin
 		}
 	}
 
-	return uintptr(uObject), loaded
+	return uObject, loaded
 }
 
 func (p *HKVTableWithBytes64) DeleteObject(objKey [64]byte) {

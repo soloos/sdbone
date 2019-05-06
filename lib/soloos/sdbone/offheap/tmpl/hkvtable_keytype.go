@@ -183,7 +183,7 @@ func (p *HKVTableWithMagicKeyName) TryGetObjectWithReadAcquire(objKey MagicKeyTy
 	return uintptr(uObject)
 }
 
-func (p *HKVTableWithMagicKeyName) MustGetObjectWithReadAcquire(objKey MagicKeyType) (uintptr, bool) {
+func (p *HKVTableWithMagicKeyName) MustGetObjectWithReadAcquire(objKey MagicKeyType) (HKVTableObjectUPtrWithMagicKeyName, bool) {
 	var (
 		uObject      HKVTableObjectUPtrWithMagicKeyName = 0
 		shard        *map[MagicKeyType]HKVTableObjectUPtrWithMagicKeyName
@@ -213,7 +213,7 @@ func (p *HKVTableWithMagicKeyName) MustGetObjectWithReadAcquire(objKey MagicKeyT
 	}
 
 	if uObject != 0 {
-		return uintptr(uObject), loaded
+		return uObject, loaded
 	}
 
 	var (
@@ -253,7 +253,7 @@ func (p *HKVTableWithMagicKeyName) MustGetObjectWithReadAcquire(objKey MagicKeyT
 		}
 	}
 
-	return uintptr(uObject), loaded
+	return uObject, loaded
 }
 
 func (p *HKVTableWithMagicKeyName) DeleteObject(objKey MagicKeyType) {

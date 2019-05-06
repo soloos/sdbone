@@ -157,7 +157,7 @@ func (p *LKVTableWithUint64) TryGetObjectWithAcquire(objKey uint64) uintptr {
 }
 
 // MustGetObjectWithAcquire return uObject, loaded
-func (p *LKVTableWithUint64) MustGetObjectWithAcquire(objKey uint64) (uintptr, KVTableAfterSetNewObj) {
+func (p *LKVTableWithUint64) MustGetObjectWithAcquire(objKey uint64) (LKVTableObjectUPtrWithUint64, KVTableAfterSetNewObj) {
 	var (
 		uObject           LKVTableObjectUPtrWithUint64 = 0
 		shard             *map[uint64]LKVTableObjectUPtrWithUint64
@@ -179,7 +179,7 @@ func (p *LKVTableWithUint64) MustGetObjectWithAcquire(objKey uint64) (uintptr, K
 	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
-		return uintptr(uObject), nil
+		return uObject, nil
 	}
 
 	shardRWMutex.Lock()
@@ -196,10 +196,10 @@ func (p *LKVTableWithUint64) MustGetObjectWithAcquire(objKey uint64) (uintptr, K
 
 	if isNewObjectSetted == false {
 		afterSetObj()
-		return uintptr(uObject), nil
+		return uObject, nil
 	}
 
-	return uintptr(uObject), afterSetObj
+	return uObject, afterSetObj
 }
 
 func (p *LKVTableWithUint64) DeleteObject(objKey uint64) {

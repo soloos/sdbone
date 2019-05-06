@@ -157,7 +157,7 @@ func (p *LKVTableWithBytes12) TryGetObjectWithAcquire(objKey [12]byte) uintptr {
 }
 
 // MustGetObjectWithAcquire return uObject, loaded
-func (p *LKVTableWithBytes12) MustGetObjectWithAcquire(objKey [12]byte) (uintptr, KVTableAfterSetNewObj) {
+func (p *LKVTableWithBytes12) MustGetObjectWithAcquire(objKey [12]byte) (LKVTableObjectUPtrWithBytes12, KVTableAfterSetNewObj) {
 	var (
 		uObject           LKVTableObjectUPtrWithBytes12 = 0
 		shard             *map[[12]byte]LKVTableObjectUPtrWithBytes12
@@ -179,7 +179,7 @@ func (p *LKVTableWithBytes12) MustGetObjectWithAcquire(objKey [12]byte) (uintptr
 	shardRWMutex.RUnlock()
 
 	if uObject != 0 {
-		return uintptr(uObject), nil
+		return uObject, nil
 	}
 
 	shardRWMutex.Lock()
@@ -196,10 +196,10 @@ func (p *LKVTableWithBytes12) MustGetObjectWithAcquire(objKey [12]byte) (uintptr
 
 	if isNewObjectSetted == false {
 		afterSetObj()
-		return uintptr(uObject), nil
+		return uObject, nil
 	}
 
-	return uintptr(uObject), afterSetObj
+	return uObject, afterSetObj
 }
 
 func (p *LKVTableWithBytes12) DeleteObject(objKey [12]byte) {
