@@ -93,13 +93,12 @@ func (p *LKVTableWithBytes68) prepareShards(objectSize int, objectsLimit int32) 
 
 func (p *LKVTableWithBytes68) objectPoolInvokeReleaseObjectBytes68() {
 	var (
-		shardIndex      uint32
-		shard           *map[[68]byte]LKVTableObjectUPtrWithBytes68
-		shardRWMutex    *sync.RWMutex
-		objKey          [68]byte
-		uObject         LKVTableObjectUPtrWithBytes68
-		uReleaseTargetK [68]byte
-		uReleaseTarget  LKVTableObjectUPtrWithBytes68
+		shardIndex   uint32
+		shard        *map[[68]byte]LKVTableObjectUPtrWithBytes68
+		shardRWMutex *sync.RWMutex
+		// objKey          [68]byte
+		uObject        LKVTableObjectUPtrWithBytes68
+		uReleaseTarget LKVTableObjectUPtrWithBytes68
 	)
 
 	for shardIndex = 0; shardIndex < p.shardCount; shardIndex++ {
@@ -107,9 +106,8 @@ func (p *LKVTableWithBytes68) objectPoolInvokeReleaseObjectBytes68() {
 		shardRWMutex = &p.shardRWMutexs[shardIndex]
 
 		shardRWMutex.RLock()
-		for objKey, uObject = range *shard {
+		for _, uObject = range *shard {
 			if uObject.Ptr().GetAccessor() == 0 {
-				uReleaseTargetK = objKey
 				uReleaseTarget = uObject
 				break
 			}
@@ -122,18 +120,18 @@ func (p *LKVTableWithBytes68) objectPoolInvokeReleaseObjectBytes68() {
 
 FIND_TARGET_DONE:
 	if uReleaseTarget != 0 {
-		p.DeleteObject(uReleaseTargetK)
+		p.ForceDeleteAfterReleaseDone(uReleaseTarget)
 	}
 }
 
-func (p *LKVTableWithBytes68) allocObjectWithBytes68WithAcquire(objKey [68]byte) LKVTableObjectUPtrWithBytes68 {
+func (p *LKVTableWithBytes68) allocObjectWithBytes68(objKey [68]byte) LKVTableObjectUPtrWithBytes68 {
 	var uObject = LKVTableObjectUPtrWithBytes68(p.objectPool.AllocRawObject())
 	uObject.Ptr().Acquire()
 	uObject.Ptr().ID = objKey
 	return uObject
 }
 
-func (p *LKVTableWithBytes68) TryGetObjectWithAcquire(objKey [68]byte) uintptr {
+func (p *LKVTableWithBytes68) TryGetObject(objKey [68]byte) uintptr {
 	var (
 		uObject      LKVTableObjectUPtrWithBytes68 = 0
 		shard        *map[[68]byte]LKVTableObjectUPtrWithBytes68
@@ -156,8 +154,8 @@ func (p *LKVTableWithBytes68) TryGetObjectWithAcquire(objKey [68]byte) uintptr {
 	return uintptr(uObject)
 }
 
-// MustGetObjectWithAcquire return uObject, loaded
-func (p *LKVTableWithBytes68) MustGetObjectWithAcquire(objKey [68]byte) (LKVTableObjectUPtrWithBytes68, KVTableAfterSetNewObj) {
+// MustGetObject return uObject, loaded
+func (p *LKVTableWithBytes68) MustGetObject(objKey [68]byte) (LKVTableObjectUPtrWithBytes68, KVTableAfterSetNewObj) {
 	var (
 		uObject           LKVTableObjectUPtrWithBytes68 = 0
 		shard             *map[[68]byte]LKVTableObjectUPtrWithBytes68
@@ -189,7 +187,7 @@ func (p *LKVTableWithBytes68) MustGetObjectWithAcquire(objKey [68]byte) (LKVTabl
 		shardRWMutex.Unlock()
 	}
 	if uObject == 0 {
-		uObject = p.allocObjectWithBytes68WithAcquire(objKey)
+		uObject = p.allocObjectWithBytes68(objKey)
 		(*shard)[objKey] = uObject
 		isNewObjectSetted = true
 	}
@@ -202,7 +200,7 @@ func (p *LKVTableWithBytes68) MustGetObjectWithAcquire(objKey [68]byte) (LKVTabl
 	return uObject, afterSetObj
 }
 
-func (p *LKVTableWithBytes68) DeleteObject(objKey [68]byte) {
+func (p *LKVTableWithBytes68) doReleaseObject(objKey [68]byte, isForceDeleteInMap bool) {
 	var (
 		uObject      LKVTableObjectUPtrWithBytes68
 		shard        *map[[68]byte]LKVTableObjectUPtrWithBytes68
@@ -217,41 +215,38 @@ func (p *LKVTableWithBytes68) DeleteObject(objKey [68]byte) {
 
 	shardRWMutex.Lock()
 	uObject, _ = (*shard)[objKey]
-	if uObject != 0 && uObject.Ptr().GetAccessor() == 0 {
+	if isForceDeleteInMap {
+		delete(*shard, objKey)
+	}
+	if uObject != 0 && uObject.Ptr().GetAccessor() <= 0 {
 		if p.beforeReleaseObjectFunc != nil {
 			p.beforeReleaseObjectFunc(uintptr(uObject))
 		}
-		delete(*shard, objKey)
-		p.objectPool.ReleaseRawObject(uintptr(uObject))
-	}
-	shardRWMutex.Lock()
-}
-
-func (p *LKVTableWithBytes68) ReleaseObject(uObject LKVTableObjectUPtrWithBytes68) {
-	var isShouldRelease = (uObject.Ptr().Release() == 0) && p.ReleaseObjectPolicyIsNeedRelease
-	if isShouldRelease == false {
-		return
-	}
-
-	var (
-		shard        *map[[68]byte]LKVTableObjectUPtrWithBytes68
-		shardRWMutex *sync.RWMutex
-		objKey       = uObject.Ptr().ID
-	)
-
-	{
-		shardIndex := p.GetShardWithBytes68(objKey)
-		shard = &p.Shards[shardIndex]
-		shardRWMutex = &p.shardRWMutexs[shardIndex]
-	}
-
-	shardRWMutex.Lock()
-	if uObject.Ptr().GetAccessor() == 0 {
-		if p.beforeReleaseObjectFunc != nil {
-			p.beforeReleaseObjectFunc(uintptr(uObject))
+		if isForceDeleteInMap == false {
+			delete(*shard, objKey)
 		}
-		delete(*shard, objKey)
 		p.objectPool.ReleaseRawObject(uintptr(uObject))
 	}
 	shardRWMutex.Unlock()
+}
+
+func (p *LKVTableWithBytes68) ForceDeleteAfterReleaseDone(uObject LKVTableObjectUPtrWithBytes68) {
+	if uObject == 0 {
+		return
+	}
+	uObject.Ptr().Release()
+	if uObject.Ptr().Release() == -1 {
+		p.doReleaseObject(uObject.Ptr().ID, true)
+	}
+}
+
+func (p *LKVTableWithBytes68) ReleaseObject(uObject LKVTableObjectUPtrWithBytes68) {
+	if uObject == 0 {
+		return
+	}
+	var accessor = uObject.Ptr().Release()
+	if (accessor == -1) ||
+		(accessor == 0 && p.ReleaseObjectPolicyIsNeedRelease) {
+		p.doReleaseObject(uObject.Ptr().ID, false)
+	}
 }
