@@ -27,3 +27,7 @@ func (p *LSharedPointer) Acquire() int32 {
 func (p *LSharedPointer) Release() int32 {
 	return atomic.AddInt32(&p.Accessor, -1)
 }
+
+func (p *LSharedPointer) Reset() {
+	atomic.StoreInt32(&p.Accessor, 0)
+}

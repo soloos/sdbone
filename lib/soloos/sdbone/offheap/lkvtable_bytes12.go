@@ -182,14 +182,15 @@ func (p *LKVTableWithBytes12) MustGetObject(objKey [12]byte) (LKVTableObjectUPtr
 
 	shardRWMutex.Lock()
 	uObject, _ = (*shard)[objKey]
-	var afterSetObj KVTableAfterSetNewObj = func() {
-		uObject.Ptr().Acquire()
-		shardRWMutex.Unlock()
-	}
 	if uObject == 0 {
 		uObject = p.allocObjectWithBytes12(objKey)
 		(*shard)[objKey] = uObject
 		isNewObjectSetted = true
+	}
+
+	var afterSetObj KVTableAfterSetNewObj = func() {
+		uObject.Ptr().Acquire()
+		shardRWMutex.Unlock()
 	}
 
 	if isNewObjectSetted == false {
@@ -225,6 +226,7 @@ func (p *LKVTableWithBytes12) doReleaseObject(objKey [12]byte, isForceDeleteInMa
 		if isForceDeleteInMap == false {
 			delete(*shard, objKey)
 		}
+		uObject.Ptr().Reset()
 		p.objectPool.ReleaseRawObject(uintptr(uObject))
 	}
 	shardRWMutex.Unlock()
@@ -235,7 +237,7 @@ func (p *LKVTableWithBytes12) ForceDeleteAfterReleaseDone(uObject LKVTableObject
 		return
 	}
 	uObject.Ptr().Release()
-	if uObject.Ptr().Release() == -1 {
+	if uObject.Ptr().Release() <= -1 {
 		p.doReleaseObject(uObject.Ptr().ID, true)
 	}
 }
@@ -245,7 +247,7 @@ func (p *LKVTableWithBytes12) ReleaseObject(uObject LKVTableObjectUPtrWithBytes1
 		return
 	}
 	var accessor = uObject.Ptr().Release()
-	if (accessor == -1) ||
+	if (accessor <= -1) ||
 		(accessor == 0 && p.ReleaseObjectPolicyIsNeedRelease) {
 		p.doReleaseObject(uObject.Ptr().ID, false)
 	}
