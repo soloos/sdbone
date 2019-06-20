@@ -1,5 +1,5 @@
 
-bench-soloos-sdbone-offheap:
-	cd src/soloos/sdbone/offheap/ && go test -bench=. -benchmem 
+bench-offheap:
+	cd src/.//offheap/ && go test -bench=. -benchmem 
 
-bench: bench-soloos-sdbone-offheap
+bench: bench-offheap
