@@ -9,6 +9,8 @@ import (
 
 type LKVTableObjectUPtrWithMagicKeyName uintptr
 
+type LKVTableListObjectWithMagicKeyName func(obj LKVTableObjectUPtrWithMagicKeyName) bool
+
 func (u LKVTableObjectUPtrWithMagicKeyName) Ptr() *LKVTableObjectWithMagicKeyName {
 	return (*LKVTableObjectWithMagicKeyName)(unsafe.Pointer(u))
 }
@@ -129,6 +131,31 @@ func (p *LKVTableWithMagicKeyName) allocObjectWithMagicKeyName(objKey MagicKeyTy
 	uObject.Ptr().Acquire()
 	uObject.Ptr().ID = objKey
 	return uObject
+}
+
+func (p *LKVTableWithMagicKeyName) ListObject(listObject LKVTableListObjectWithMagicKeyName) {
+	var (
+		uObject        LKVTableObjectUPtrWithMagicKeyName = 0
+		shard          *map[MagicKeyType]LKVTableObjectUPtrWithMagicKeyName
+		isListContinue bool
+	)
+
+	for shardIndex, _ := range p.Shards {
+		isListContinue = true
+		shard = &p.Shards[shardIndex]
+		p.shardRWMutexs[shardIndex].RLock()
+		for _, uObject = range *shard {
+			isListContinue = listObject(uObject)
+			if isListContinue == false {
+				break
+			}
+		}
+		p.shardRWMutexs[shardIndex].RUnlock()
+
+		if isListContinue == false {
+			break
+		}
+	}
 }
 
 func (p *LKVTableWithMagicKeyName) TryGetObject(objKey MagicKeyType) uintptr {

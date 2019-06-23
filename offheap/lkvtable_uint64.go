@@ -9,6 +9,8 @@ import (
 
 type LKVTableObjectUPtrWithUint64 uintptr
 
+type LKVTableListObjectWithUint64 func(obj LKVTableObjectUPtrWithUint64) bool
+
 func (u LKVTableObjectUPtrWithUint64) Ptr() *LKVTableObjectWithUint64 {
 	return (*LKVTableObjectWithUint64)(unsafe.Pointer(u))
 }
@@ -129,6 +131,31 @@ func (p *LKVTableWithUint64) allocObjectWithUint64(objKey uint64) LKVTableObject
 	uObject.Ptr().Acquire()
 	uObject.Ptr().ID = objKey
 	return uObject
+}
+
+func (p *LKVTableWithUint64) ListObject(listObject LKVTableListObjectWithUint64) {
+	var (
+		uObject        LKVTableObjectUPtrWithUint64 = 0
+		shard          *map[uint64]LKVTableObjectUPtrWithUint64
+		isListContinue bool
+	)
+
+	for shardIndex, _ := range p.Shards {
+		isListContinue = true
+		shard = &p.Shards[shardIndex]
+		p.shardRWMutexs[shardIndex].RLock()
+		for _, uObject = range *shard {
+			isListContinue = listObject(uObject)
+			if isListContinue == false {
+				break
+			}
+		}
+		p.shardRWMutexs[shardIndex].RUnlock()
+
+		if isListContinue == false {
+			break
+		}
+	}
 }
 
 func (p *LKVTableWithUint64) TryGetObject(objKey uint64) uintptr {
