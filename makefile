@@ -13,9 +13,9 @@ fbs: $(GENERATED_PROTOS)
 
 all:sdboned
 sdboned:
-	$(SWAL_PREFIX) go build -i -ldflags '$(SWAL_LDFLAGS)' -o ./bin/sdboned sdboned
+	$(SWAL_PREFIX) go build -i -ldflags '$(SWAL_LDFLAGS)' -o ./bin/sdboned ./apps/sdboned
 
 include ./make/test
 include ./make/bench
 
-.PHONY:all soloos-server test
+.PHONY:all sdboned test
