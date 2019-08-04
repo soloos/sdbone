@@ -2,11 +2,13 @@ package sdboned
 
 import (
 	"soloos/common/soloosbase"
+	"soloos/sdbone/sdbone"
 )
 
 type SDBONED struct {
 	options   Options
 	SoloOSEnv soloosbase.SoloOSEnv
+	SDBOne    sdbone.SDBOne
 }
 
 func (p *SDBONED) Init(options Options) error {
@@ -16,6 +18,8 @@ func (p *SDBONED) Init(options Options) error {
 	if err != nil {
 		return err
 	}
+
+	p.SDBOne.SoloOSEnv = &p.SoloOSEnv
 
 	return nil
 }
