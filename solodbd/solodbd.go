@@ -1,17 +1,17 @@
-package sdboned
+package solodbd
 
 import (
 	"soloos/common/soloosbase"
-	"soloos/sdbone/sdbone"
+	"soloos/solodb/solodb"
 )
 
-type SDBONED struct {
+type SOLODBD struct {
 	options   Options
 	SoloOSEnv soloosbase.SoloOSEnv
-	SDBOne    sdbone.SDBOne
+	Solodb    solodb.Solodb
 }
 
-func (p *SDBONED) Init(options Options) error {
+func (p *SOLODBD) Init(options Options) error {
 	var err error
 	p.options = options
 	err = p.SoloOSEnv.InitWithSNet("")
@@ -19,11 +19,11 @@ func (p *SDBONED) Init(options Options) error {
 		return err
 	}
 
-	p.SDBOne.SoloOSEnv = &p.SoloOSEnv
+	p.Solodb.SoloOSEnv = &p.SoloOSEnv
 
 	return nil
 }
 
-func (p *SDBONED) Start() error {
+func (p *SOLODBD) Start() error {
 	return nil
 }

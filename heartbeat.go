@@ -1,21 +1,21 @@
-package sdbone
+package solodb
 
 import (
 	"soloos/common/iron"
 	"soloos/common/log"
-	"soloos/common/sdbapitypes"
+	"soloos/common/solodbapitypes"
 	"soloos/common/snettypes"
 	"time"
 )
 
-func (p *SDBOne) SetHeartBeatServers(heartBeatServerOptionsArr []sdbapitypes.HeartBeatServerOptions) error {
+func (p *Solodb) SetHeartBeatServers(heartBeatServerOptionsArr []solodbapitypes.HeartBeatServerOptions) error {
 	p.HeartBeatServerOptionsArr = heartBeatServerOptionsArr
 	return nil
 }
 
-func (p *SDBOne) doHeartBeat(options sdbapitypes.HeartBeatServerOptions) {
+func (p *Solodb) doHeartBeat(options solodbapitypes.HeartBeatServerOptions) {
 	var (
-		heartBeat sdbapitypes.SDBOneHeartBeat
+		heartBeat solodbapitypes.SolodbHeartBeat
 		webret    iron.ApiOutputResult
 		peer      snettypes.Peer
 		urlPath   string
@@ -27,25 +27,25 @@ func (p *SDBOne) doHeartBeat(options sdbapitypes.HeartBeatServerOptions) {
 
 	for {
 		peer, err = p.SoloOSEnv.SNetDriver.GetPeer(options.PeerID)
-		urlPath = peer.AddressStr() + "/Api/SDB/SDBOne/HeartBeat"
+		urlPath = peer.AddressStr() + "/Api/SDB/Solodb/HeartBeat"
 		if err != nil {
-			log.Error("SDBOne HeartBeat post json error, urlPath:", urlPath, ", err:", err)
+			log.Error("Solodb HeartBeat post json error, urlPath:", urlPath, ", err:", err)
 			goto HEARTBEAT_DONE
 		}
 
 		err = iron.PostJSON(urlPath, heartBeat, &webret)
 		if err != nil {
-			log.Error("SDBOne HeartBeat post json(decode) error, urlPath:", urlPath, ", err:", err)
+			log.Error("Solodb HeartBeat post json(decode) error, urlPath:", urlPath, ", err:", err)
 			goto HEARTBEAT_DONE
 		}
-		log.Info("SDBOne heartbeat message:", webret)
+		log.Info("Solodb heartbeat message:", webret)
 
 	HEARTBEAT_DONE:
 		time.Sleep(time.Duration(options.DurationMS) * time.Millisecond)
 	}
 }
 
-func (p *SDBOne) StartHeartBeat() error {
+func (p *Solodb) StartHeartBeat() error {
 	for _, options := range p.HeartBeatServerOptionsArr {
 		go p.doHeartBeat(options)
 	}

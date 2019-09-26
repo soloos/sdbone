@@ -1,31 +1,31 @@
-package sdbone
+package solodb
 
 import (
 	"soloos/common/iron"
-	"soloos/common/sdbapitypes"
+	"soloos/common/solodbapitypes"
 	"soloos/common/snet"
 	"soloos/common/snettypes"
 	"soloos/common/soloosbase"
 )
 
-type SDBOne struct {
+type Solodb struct {
 	SoloOSEnv *soloosbase.SoloOSEnv
 	SRPCPeer  snettypes.Peer
 	WebPeer   snettypes.Peer
 
-	HeartBeatServerOptionsArr []sdbapitypes.HeartBeatServerOptions
+	HeartBeatServerOptionsArr []solodbapitypes.HeartBeatServerOptions
 	SRPCServer                snet.SRPCServer
 	WebServer                 iron.Server
 	ServerDriver              iron.ServerDriver
 }
 
-var _ = iron.IServer(&SDBOne{})
+var _ = iron.IServer(&Solodb{})
 
-func (p *SDBOne) ServerName() string {
-	return "SoloOS.SDBOne"
+func (p *Solodb) ServerName() string {
+	return "SoloOS.Solodb"
 }
 
-func (p *SDBOne) Serve() error {
+func (p *Solodb) Serve() error {
 	var err error
 
 	err = p.StartHeartBeat()
@@ -41,6 +41,6 @@ func (p *SDBOne) Serve() error {
 	return nil
 }
 
-func (p *SDBOne) Close() error {
+func (p *Solodb) Close() error {
 	return p.ServerDriver.Close()
 }

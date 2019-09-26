@@ -3,13 +3,13 @@ package main
 import (
 	"os"
 	"soloos/common/util"
-	"soloos/sdbone/sdboned"
+	"soloos/solodb/solodbd"
 )
 
 func main() {
 	var (
-		sdbonedIns sdboned.SDBONED
-		options    sdboned.Options
+		solodbdIns solodbd.SOLODBD
+		options    solodbd.Options
 		err        error
 	)
 
@@ -18,6 +18,6 @@ func main() {
 	err = util.LoadOptionsFile(optionsFile, &options)
 	util.AssertErrIsNil(err)
 
-	util.AssertErrIsNil(sdbonedIns.Init(options))
-	util.AssertErrIsNil(sdbonedIns.Start())
+	util.AssertErrIsNil(solodbdIns.Init(options))
+	util.AssertErrIsNil(solodbdIns.Start())
 }

@@ -1,4 +1,4 @@
-package sdboned
+package solodbd
 
 type Options struct {
 }

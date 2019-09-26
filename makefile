@@ -1,21 +1,21 @@
-SWAL_LDFLAGS += -X "soloos/sdbone/version.BuildTS=$(shell date -u '+%Y-%m-%d %I:%M:%S')"
-SWAL_LDFLAGS += -X "soloos/sdbone/version.GitHash=$(shell git rev-parse HEAD)"
-# SWAL_PREFIX += GOTMPDIR=./go.build/tmp GOCACHE=./go.build/cache
+SOLOMQ_LDFLAGS += -X "soloos/solodb/version.BuildTS=$(shell date -u '+%Y-%m-%d %I:%M:%S')"
+SOLOMQ_LDFLAGS += -X "soloos/solodb/version.GitHash=$(shell git rev-parse HEAD)"
+# SOLOMQ_PREFIX += GOTMPDIR=./go.build/tmp GOCACHE=./go.build/cache
 
-SOLOOS_SWAL_PROTOS = $(shell find ./ -name '*.fbs'|grep -v vendor)
+SOLOOS_SOLOMQ_PROTOS = $(shell find ./ -name '*.fbs'|grep -v vendor)
 GENERATED_PROTOS = $(shell find ./ -name "*.fbs"|grep -v vendor| sed 's/\.fbs/\.fbs\.go/g')
 SOURCES = $(shell find . -name '*.go') $(GENERATED_PROTOS)
 
-%.fbs.go: $(SOLOOS_SWAL_PROTOS)
-	flatc -o ./ -g $(SOLOOS_SWAL_PROTOS)
+%.fbs.go: $(SOLOOS_SOLOMQ_PROTOS)
+	flatc -o ./ -g $(SOLOOS_SOLOMQ_PROTOS)
 
 fbs: $(GENERATED_PROTOS)
 
-all:sdboned
-sdboned:
-	$(SWAL_PREFIX) go build -i -ldflags '$(SWAL_LDFLAGS)' -o ./bin/sdboned ./apps/sdboned
+all:solodbd
+solodbd:
+	$(SOLOMQ_PREFIX) go build -i -ldflags '$(SOLOMQ_LDFLAGS)' -o ./bin/solodbd ./apps/solodbd
 
 include ./make/test
 include ./make/bench
 
-.PHONY:all sdboned test
+.PHONY:all solodbd test
