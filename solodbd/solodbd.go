@@ -5,25 +5,25 @@ import (
 	"soloos/solodb/solodb"
 )
 
-type SOLODBD struct {
+type SolodbD struct {
 	options   Options
-	SoloOSEnv soloosbase.SoloOSEnv
+	SoloosEnv soloosbase.SoloosEnv
 	Solodb    solodb.Solodb
 }
 
-func (p *SOLODBD) Init(options Options) error {
+func (p *SolodbD) Init(options Options) error {
 	var err error
 	p.options = options
-	err = p.SoloOSEnv.InitWithSNet("")
+	err = p.SoloosEnv.InitWithSNet("")
 	if err != nil {
 		return err
 	}
 
-	p.Solodb.SoloOSEnv = &p.SoloOSEnv
+	p.Solodb.SoloosEnv = &p.SoloosEnv
 
 	return nil
 }
 
-func (p *SOLODBD) Start() error {
+func (p *SolodbD) Start() error {
 	return nil
 }

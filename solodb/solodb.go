@@ -9,7 +9,7 @@ import (
 )
 
 type Solodb struct {
-	SoloOSEnv *soloosbase.SoloOSEnv
+	SoloosEnv *soloosbase.SoloosEnv
 	SRPCPeer  snettypes.Peer
 	WebPeer   snettypes.Peer
 
@@ -22,7 +22,7 @@ type Solodb struct {
 var _ = iron.IServer(&Solodb{})
 
 func (p *Solodb) ServerName() string {
-	return "SoloOS.Solodb"
+	return "Soloos.Solodb"
 }
 
 func (p *Solodb) Serve() error {

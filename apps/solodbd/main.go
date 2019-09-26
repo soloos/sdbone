@@ -8,7 +8,7 @@ import (
 
 func main() {
 	var (
-		solodbdIns solodbd.SOLODBD
+		solodbdIns solodbd.SolodbD
 		options    solodbd.Options
 		err        error
 	)
