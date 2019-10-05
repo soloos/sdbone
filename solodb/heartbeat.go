@@ -22,7 +22,7 @@ func (p *Solodb) doHeartBeat(options solodbapitypes.HeartBeatServerOptions) {
 		err       error
 	)
 
-	heartBeat.SRPCPeerID = p.SRPCPeer.PeerID().Str()
+	heartBeat.SrpcPeerID = p.SrpcPeer.PeerID().Str()
 	heartBeat.WebPeerID = p.WebPeer.PeerID().Str()
 
 	for {

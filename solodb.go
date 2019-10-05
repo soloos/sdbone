@@ -10,11 +10,11 @@ import (
 
 type Solodb struct {
 	SoloosEnv *soloosbase.SoloosEnv
-	SRPCPeer  snettypes.Peer
+	SrpcPeer  snettypes.Peer
 	WebPeer   snettypes.Peer
 
 	HeartBeatServerOptionsArr []solodbapitypes.HeartBeatServerOptions
-	SRPCServer                snet.SRPCServer
+	SrpcServer                snet.SrpcServer
 	WebServer                 iron.Server
 	ServerDriver              iron.ServerDriver
 }
