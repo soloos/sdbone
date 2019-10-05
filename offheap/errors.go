@@ -3,7 +3,7 @@ package offheap
 import "errors"
 
 var (
-	ErrUnknownKeyType       = errors.New("unknown keytype")
+	ErrUnknownKeyType        = errors.New("unknown keytype")
 	ErrAllocObjectOurOfLimit = errors.New("alloc object out of limit")
-	ErrMmap                 = errors.New("mmap error")
+	ErrMmap                  = errors.New("mmap error")
 )

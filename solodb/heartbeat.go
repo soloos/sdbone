@@ -3,8 +3,8 @@ package solodb
 import (
 	"soloos/common/iron"
 	"soloos/common/log"
-	"soloos/common/solodbapitypes"
 	"soloos/common/snettypes"
+	"soloos/common/solodbapitypes"
 	"time"
 )
 

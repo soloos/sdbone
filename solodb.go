@@ -2,9 +2,9 @@ package solodb
 
 import (
 	"soloos/common/iron"
-	"soloos/common/solodbapitypes"
 	"soloos/common/snet"
 	"soloos/common/snettypes"
+	"soloos/common/solodbapitypes"
 	"soloos/common/soloosbase"
 )
 
