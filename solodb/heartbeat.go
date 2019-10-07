@@ -4,18 +4,18 @@ import (
 	"soloos/common/iron"
 	"soloos/common/log"
 	"soloos/common/snet"
-	"soloos/common/solodbapitypes"
+	"soloos/common/solodbtypes"
 	"time"
 )
 
-func (p *Solodb) SetHeartBeatServers(heartBeatServerOptionsArr []solodbapitypes.HeartBeatServerOptions) error {
+func (p *Solodb) SetHeartBeatServers(heartBeatServerOptionsArr []solodbtypes.HeartBeatServerOptions) error {
 	p.HeartBeatServerOptionsArr = heartBeatServerOptionsArr
 	return nil
 }
 
-func (p *Solodb) doHeartBeat(options solodbapitypes.HeartBeatServerOptions) {
+func (p *Solodb) doHeartBeat(options solodbtypes.HeartBeatServerOptions) {
 	var (
-		heartBeat solodbapitypes.SolodbHeartBeat
+		heartBeat solodbtypes.SolodbHeartBeat
 		webret    iron.ApiOutputResult
 		peer      snet.Peer
 		urlPath   string

@@ -3,7 +3,7 @@ package solodb
 import (
 	"soloos/common/iron"
 	"soloos/common/snet"
-	"soloos/common/solodbapitypes"
+	"soloos/common/solodbtypes"
 	"soloos/common/soloosbase"
 )
 
@@ -12,7 +12,7 @@ type Solodb struct {
 	SrpcPeer  snet.Peer
 	WebPeer   snet.Peer
 
-	HeartBeatServerOptionsArr []solodbapitypes.HeartBeatServerOptions
+	HeartBeatServerOptionsArr []solodbtypes.HeartBeatServerOptions
 	SrpcServer                snet.SrpcServer
 	WebServer                 iron.Server
 	ServerDriver              iron.ServerDriver
