@@ -1,9 +1,10 @@
 module soloos/solodb
 
-go 1.12
+go 1.13
 
 require (
 	github.com/google/flatbuffers v1.11.0
+	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/stretchr/testify v1.3.0
 	soloos/common v0.0.0
 	soloos/soloboat v0.0.0

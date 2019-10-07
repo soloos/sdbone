@@ -3,7 +3,7 @@ package solodb
 import (
 	"soloos/common/iron"
 	"soloos/common/log"
-	"soloos/common/snettypes"
+	"soloos/common/snet"
 	"soloos/common/solodbapitypes"
 	"time"
 )
@@ -17,7 +17,7 @@ func (p *Solodb) doHeartBeat(options solodbapitypes.HeartBeatServerOptions) {
 	var (
 		heartBeat solodbapitypes.SolodbHeartBeat
 		webret    iron.ApiOutputResult
-		peer      snettypes.Peer
+		peer      snet.Peer
 		urlPath   string
 		err       error
 	)
